@@ -45,8 +45,8 @@ model {
   inc_effect_std ~ normal(0,1);
   eth_effect_std ~ normal(0,1);
 
-  effect_sd ~ normal(1,4);
-  mu ~ normal(0,10);
+  effect_sd ~ normal(1,1);
+  mu ~ normal(0,1);
 
   for(i in 1:N)
     mu_modeled[i] <- mu + stt_effect[stt[i]] 
@@ -56,4 +56,3 @@ model {
   
   response_y ~ binomial_logit(total_respondents,mu_modeled);
 }
-
