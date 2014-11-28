@@ -4,6 +4,7 @@ data {
   int<lower = 1> J_eth; // Number of ethniticty categories
   int<lower = 1> J_inc; // Number of income categories
   int<lower = 1> J_age; // Number of age categories
+  int<lower = 1> K; // Number of fixed effects
   int response_y[N]; // Vector of total yes in cell_i
   int response_n[N]; // Vector of total no in cell_i
   int stt[N]; // Cell's state
@@ -11,6 +12,7 @@ data {
   int eth[N]; // Cell's ethnicity
   int age[N]; // Cell's age
   int pop_counts[N]; // Number of people in cell_i
+  row_vector[K] X[N]; // Matrix of fixed effects
 }
 transformed data {
   int total_respondents[N];
