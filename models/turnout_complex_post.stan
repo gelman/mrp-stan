@@ -47,11 +47,18 @@ data {
 transformed data {
   int total_respondents[N];
   int N_cat; // number of categories
+  int lp_vec_len;
   
   for(i in 1:N)
     total_respondents[i] <- response_y[i] + response_n[i];
 
   N_cat <- J_age * J_eth * J_inc;
+  lp_vec_len <- S + 1 + 1 + 1 + 1;
+  // S random effect contributions to log_posterior (vectorized)
+  // 1 for fixed effect
+  // 1 for random effect standard deviation priors
+  // 1 for likelihood
+  // 1 for mu fixed
 }
 parameters {
   vector[J_stt] stt_effect_intercept_std;
@@ -161,60 +168,62 @@ transformed parameters {
                   + eth_inc_age_effect[eth_inc_age[i]];
 }
 model {
-  beta ~ normal(0,1);
- 
-  stt_effect_intercept_std ~ normal(0,1);
-  age_effect_intercept_std ~ normal(0,1);
-  reg_effect_intercept_std ~ normal(0,1);
-  eth_effect_intercept_std ~ normal(0,1);
+  vector[lp_vec_len] lp_vec;
+  lp_vec[1] <- normal_log(beta,0,1); 
 
-  inc_effect_std ~ normal(0,1);
+  lp_vec[2] <- normal_log(stt_effect_intercept_std,0,1);
+  lp_vec[3] <- normal_log(age_effect_intercept_std,0,1);
+  lp_vec[4] <- normal_log(reg_effect_intercept_std,0,1);
+  lp_vec[5] <- normal_log(eth_effect_intercept_std,0,1);
 
-  stt_effect_coef_std ~ normal(0,1);
-  age_effect_coef_std ~ normal(0,1);
-  reg_effect_coef_std ~ normal(0,1);
-  eth_effect_coef_std ~ normal(0,1);
+  lp_vec[6] <- normal_log(inc_effect_std,0,1);
 
-  reg_eth_effect_std ~ normal(0,1);
-  reg_inc_effect_std ~ normal(0,1);
-  reg_age_effect_std ~ normal(0,1);
+  lp_vec[7] <- normal_log(stt_effect_coef_std,0,1);
+  lp_vec[8] <- normal_log(age_effect_coef_std,0,1);
+  lp_vec[9] <- normal_log(reg_effect_coef_std,0,1);
+  lp_vec[10] <- normal_log(eth_effect_coef_std,0,1);
 
-  stt_eth_effect_std ~ normal(0,1);
-  stt_inc_effect_std ~ normal(0,1);
-  stt_age_effect_std ~ normal(0,1);
+  lp_vec[11] <- normal_log(reg_eth_effect_std,0,1);
+  lp_vec[12] <- normal_log(reg_inc_effect_std,0,1);
+  lp_vec[13] <- normal_log(reg_age_effect_std,0,1);
 
-  eth_inc_effect_std ~ normal(0,1);
-  eth_age_effect_std ~ normal(0,1);
-  inc_age_effect_std ~ normal(0,1);
+  lp_vec[14] <- normal_log(stt_eth_effect_std,0,1);
+  lp_vec[15] <- normal_log(stt_inc_effect_std,0,1);
+  lp_vec[16] <- normal_log(stt_age_effect_std,0,1);
 
-  stt_eth_age_effect_std ~ normal(0,1);
-  stt_eth_inc_effect_std ~ normal(0,1);
-  stt_inc_age_effect_std ~ normal(0,1);
-  eth_inc_age_effect_std ~ normal(0,1);
+  lp_vec[17] <- normal_log(eth_inc_effect_std,0,1);
+  lp_vec[18] <- normal_log(eth_age_effect_std,0,1);
+  lp_vec[19] <- normal_log(inc_age_effect_std,0,1);
 
-  effect_sd ~ normal(0.5,1);
-  mu ~ normal(0,1);
-  
-  response_y ~ binomial_logit(total_respondents,mu_modeled);
+  lp_vec[20] <- normal_log(stt_eth_age_effect_std,0,1);
+  lp_vec[21] <- normal_log(stt_eth_inc_effect_std,0,1);
+  lp_vec[22] <- normal_log(stt_inc_age_effect_std,0,1);
+  lp_vec[23] <- normal_log(eth_inc_age_effect_std,0,1) ;
+
+  lp_vec[24] <- normal_log(effect_sd,0.5,1);
+  lp_vec[25] <- normal_log(mu,0,1);
+    
+  lp_vec[26] <- binomial_logit_log(response_y,total_respondents,mu_modeled);
+  increment_log_prob(lp_vec);
 }
 generated quantities {
   vector<lower = 0, upper = 1>[N] pp_repub_prob;
   vector<lower = 0, upper = 1>[J_stt] stt_repub_sup;
-  int N_stt; // Temp to state
-  real agg; // Temp collector
+  vector[N_cat] N_stt_temp;
+  vector[N_cat] agg; // Temp collector
+  int pop_count_holder;
   int ind;
 
   for(i in 1:N)
     pp_repub_prob[i] <- inv_logit(mu_modeled[i]);
  
   for(i in 1:J_stt){
-    N_stt <- 0;
-    agg <- 0;
     for(m in 1:N_cat){
       ind <- i + (m - 1) * J_stt;
-      N_stt <- N_stt + pop_counts[ind];
-      agg <- agg + pop_counts[ind] * pp_repub_prob[ind];
+      pop_count_holder <- pop_counts[ind];
+      N_stt[m] <- pop_count_holder;
+      agg[m] <- pop_count_holder * pp_repub_prob[ind];
     }
-    stt_repub_sup[i] <- agg / N_stt;
+    stt_repub_sup[i] <- sum(agg) / sum(N_stt);
   }
 }
